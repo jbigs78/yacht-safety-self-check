@@ -114,7 +114,7 @@ function ownerApp(){
   const fresh = () => ({owner:D.yacht.owner||'', email:D.yacht.ownerEmail||'', phone:D.yacht.ownerPhone||'', boat:Object.assign({}, D.boat),
     answers:Object.fromEntries(allItems.map(i => [i.id, {a:'', n:'', e:i.ex ? (D.prevE[i.id]||'') : ''}])),
     earliest:Object.fromEntries(exRows.map(r => [r.k, {v:D.prevX[r.k]||''}])),
-    ins:{insurer:D.prevIns.insurer, renew:D.prevIns.renew, pl:false}, declName:'', declared:false, done:false});
+    ins:{insurer:D.prevIns.insurer||'', renew:D.prevIns.renew||'', pl:!!D.prevIns.pl}, declName:'', declared:false, done:false});
   let st = null;
   try{ st = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   if(!st) st = fresh();
@@ -298,11 +298,11 @@ function ownerApp(){
   render();
 }
 function regDataFromPayload(P, C){
-  return {generated:P.g, warnDays:P.w, web3formsKey:P.k||'', auditor:P.au, club:P.club||'', logo:C.logo,
+  return {generated:P.g, warnDays:P.w, web3formsKey:P.k||'', auditor:P.au, club:P.club||'', logo:C.logo, pre:P.pre||null,
           boatFields:C.boatFields, features:C.features, regDecl:C.regDecl, plText:C.plText};
 }
 function regApp(){
-  const D = DATA, KEY = 'yachtReg1.'+D.generated+'.'+(D.club||''), app = document.getElementById('app');
+  const D = DATA, KEY = 'yachtReg1.'+D.generated+'.'+(D.club||'')+'.'+((D.pre && D.pre.y && D.pre.y.sailNo)||''), app = document.getElementById('app');
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
   const isDate = v => /^\d{4}-\d\d-\d\d$/.test(v||'');
@@ -310,9 +310,11 @@ function regApp(){
   const days = (a,b) => Math.round((new Date(b+'T00:00') - new Date(a+'T00:00'))/864e5);
   const status = d => !d ? 'missing' : d < today() ? 'expired' : days(today(), d) <= D.warnDays ? 'soon' : 'ok';
   const chip = d => ({missing:'', expired:'<span class="chip bad">Expired</span>', soon:'<span class="chip soon">Expires soon</span>', ok:'<span class="chip ok">In date</span>'})[status(d)];
-  const fresh = () => ({o:{name:'', email:'', phone:'', address:'', asNo:''},
-    y:{name:'', sailNo:'', club:D.club||'', yachtClass:'', category:'', ...Object.fromEntries(Object.keys(D.features).map(k => [k,'']))},
-    boat:Object.fromEntries(D.boatFields.map(f => [f[0], ''])), ins:{insurer:'', renew:'', pl:''}, declName:'', declared:'', done:false});
+  const P = D.pre || {};
+  const fresh = () => ({o:{name:'', email:'', phone:'', address:'', asNo:'', ...(P.o||{})},
+    y:{name:'', sailNo:'', club:D.club||'', yachtClass:'', category:'', ...Object.fromEntries(Object.keys(D.features).map(k => [k,''])), ...(P.y||{})},
+    boat:{...Object.fromEntries(D.boatFields.map(f => [f[0], ''])), ...(P.boat||{})}, ins:{insurer:'', renew:'', pl:'', ...(P.ins||{})},
+    declName:'', declared:'', done:false});
   let st = null;
   try{ st = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   if(!st) st = fresh();
@@ -326,8 +328,9 @@ function regApp(){
     return `<div><label>${lab}</label><input ${a} ${o?`type="${o}"`:''} value="${esc(v)}"></div>`; };
   function formHtml(){
     return `${head}<main>
-      <div class="card"><h2>Register your yacht</h2>
-        <p>Please fill in this form to register your yacht for safety equipment audits${D.club?' at <b>'+esc(D.club)+'</b>':''}. Fields marked * are required.
+      <div class="card"><h2>${D.pre ? 'Check your yacht registration' : 'Register your yacht'}</h2>
+        <p>${D.pre ? 'This form is already filled in with the details your auditor holds for your yacht. Please check everything and update anything that has changed.'
+          : 'Please fill in this form to register your yacht for safety equipment audits'+(D.club?' at <b>'+esc(D.club)+'</b>':'')+'.'} Fields marked * are required.
         When you press <b>Check &amp; send to auditor</b> it goes to ${esc(D.auditor.name||D.auditor.email)}. Your answers are saved in this browser as you go.</p></div>
       <div class="card"><h3>Owner</h3><div class="grid">
         ${field('o',['name','Owner(s) name(s)'],1)}${field('o',['email','Email','email'],1)}${field('o',['phone','Phone','tel'],1)}
